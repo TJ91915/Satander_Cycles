@@ -1,0 +1,23 @@
+service-account-key.json
+.streamlit/secrets.toml
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+# personal notes
+tasks/
+
+# tooling / IDE
+.claude/
+.vscode/
+.idea/
+
+# generated route data — regenerated automatically on first load via OSRM
+# (see lib.regenerate_road_map). Excluded so the repo doesn't carry trip data.
+assets/london_road_routes_map.html
+assets/route_geometry_cache.json
+assets/route_fingerprint.txt
+
+# original static dashboard — kept locally as a visual spec, has hardcoded trip data
+santander_cycles_dashboard.html
