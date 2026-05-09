@@ -2,7 +2,7 @@
 import streamlit as st
 
 from lib import load_rentals
-from views import bikes, overview, payments, route_map, stations, trends
+from views import bikes, cost_analysis, overview, payments, route_map, stations, trends
 
 st.set_page_config(
     page_title="Santander Cycles",
@@ -26,8 +26,8 @@ if excluded:
     caption += f" • {excluded} trip{'s' if excluded != 1 else ''} excluded (bike {bikes_list})"
 st.caption(caption)
 
-t_overview, t_trends, t_map, t_stations, t_bikes, t_payments = st.tabs([
-    "Overview", "Trends", "Route Map", "Stations", "Bikes", "Payments",
+t_overview, t_trends, t_map, t_stations, t_bikes, t_cost, t_payments = st.tabs([
+    "Overview", "Trends", "Route Map", "Stations", "Bikes", "Cost Analysis", "Payments",
 ])
 
 with t_overview:
@@ -40,5 +40,7 @@ with t_stations:
     stations.render(df)
 with t_bikes:
     bikes.render(df)
+with t_cost:
+    cost_analysis.render()
 with t_payments:
     payments.render()

@@ -101,13 +101,17 @@ def _is_ebike(model: pd.Series) -> pd.Series:
 
 # ---------- loaders ----------
 @st.cache_data(ttl=CACHE_TTL, show_spinner="Loading rental data…")
-def load_rentals() -> pd.DataFrame:
+def load_rentals(include_excluded: bool = False) -> pd.DataFrame:
     """One row per trip with parsed dates, durations, stations, bike + derived columns.
 
     Source columns (literal headers):
       Rental number, Start date, Member name, Status, Start station,
       Billable duration, Final price, End date, Bike, Bike model, End station,
       Start station lat, Start station long, End station lat, End station long
+
+    `include_excluded=True` keeps EXCLUDED_BIKE_IDS in the result. The Cost
+    Analysis tab needs this to surface the £300 / late-return-charge rental
+    for bike 20548. All other tabs use the default (filtered) view.
     """
     ws = client().open_by_key(SHEET_ID_RENTALS).get_worksheet(0)
     rows = ws.get_all_values()
@@ -150,10 +154,11 @@ def load_rentals() -> pd.DataFrame:
     # Exclude bikes flagged as data anomalies (e.g. stolen mid-rental — see EXCLUDED_BIKE_IDS).
     excluded_mask = df["bike_id"].isin(EXCLUDED_BIKE_IDS)
     excluded_count = int(excluded_mask.sum())
-    df = df[~excluded_mask].copy()
+    if not include_excluded:
+        df = df[~excluded_mask].copy()
 
     df = df.sort_values("start_dt").reset_index(drop=True)
-    df.attrs["excluded_trip_count"] = excluded_count
+    df.attrs["excluded_trip_count"] = 0 if include_excluded else excluded_count
     df.attrs["excluded_bike_ids"] = sorted(EXCLUDED_BIKE_IDS)
 
     df["is_ebike"]    = _is_ebike(df["bike_model"])
@@ -191,6 +196,50 @@ def load_docks() -> pd.DataFrame:
 
     return df.dropna(subset=["lat", "lng"]).reset_index(drop=True)[
         ["dock_id", "name", "terminal_name", "lat", "lng", "capacity"]
+    ]
+
+
+@st.cache_data(ttl=CACHE_TTL, show_spinner="Loading payments…")
+def load_payments() -> pd.DataFrame:
+    """Payments sheet — actual money movements only.
+
+    Filters to `Result == "Accepted"` and drops Validation rows (always £0
+    placeholders). Refunds are kept with `signed_amount` negated so totals net.
+
+    Source columns (literal headers):
+      Number, Creation date, Payment type, Payment mode, Amount,
+      Merchant TX ID, Result, Result reason, Context
+
+    Returned columns: payment_dt, payment_type, amount_gbp, signed_amount,
+    result_reason, context.
+    """
+    ws = client().open_by_key(SHEET_ID_PAYMENTS).get_worksheet(0)
+    rows = ws.get_all_values()
+    df = pd.DataFrame(rows[1:], columns=[c.strip() for c in rows[0]])
+
+    df["payment_dt"] = pd.to_datetime(df["Creation date"], format=DATE_FMT, errors="coerce")
+    df["amount_gbp"] = pd.to_numeric(
+        df["Amount"].astype(str)
+            .str.replace("£", "", regex=False)
+            .str.replace(",", "", regex=False)
+            .str.strip(),
+        errors="coerce",
+    )
+    df["payment_type"]  = df["Payment type"].str.strip()
+    df["result"]        = df["Result"].str.strip()
+    df["result_reason"] = df["Result reason"].str.strip()
+    df["context"]       = df["Context"].str.strip()
+
+    df = df[(df["result"] == "Accepted") & (df["payment_type"] != "Validation")].copy()
+    df = df.dropna(subset=["payment_dt"])
+
+    # Refunds carry negative signed amounts so per-context sums net out correctly.
+    df["signed_amount"] = df["amount_gbp"].where(
+        df["payment_type"] != "Refund (ind.)", -df["amount_gbp"]
+    )
+
+    return df.sort_values("payment_dt").reset_index(drop=True)[
+        ["payment_dt", "payment_type", "amount_gbp", "signed_amount", "result_reason", "context"]
     ]
 
 
