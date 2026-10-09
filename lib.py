@@ -32,6 +32,15 @@ OSRM_URL = (
     "{slon},{slat};{elon},{elat}?overview=full&geometries=geojson"
 )
 
+# Esri World Dark Gray Canvas: keyless dark basemap. CARTO's dark_all tiles started
+# requiring an API key in Sept 2026 and now serve an "API KEY REQUIRED" watermark.
+BASEMAP_TILES = (
+    "https://server.arcgisonline.com/ArcGIS/rest/services/"
+    "Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+)
+BASEMAP_ATTR = "Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
+BASEMAP_MAX_ZOOM = 16  # Canvas services stop at z16
+
 # Date format used across all three sheets
 DATE_FMT = "%d/%m/%Y %H:%M"
 
@@ -275,8 +284,9 @@ def _unique_routes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _fingerprint(routes: pd.DataFrame) -> str:
-    """Stable hash of the unique-routes set so we can detect 'new data since last regen'."""
-    return "\n".join(
+    """Stable signature of the basemap + unique-routes set, so new data or a tile
+    provider change both trigger a regen (geometries come from cache, not OSRM)."""
+    return BASEMAP_TILES + "\n" + "\n".join(
         _route_key(r.start_lat, r.start_lng, r.end_lat, r.end_lng) + f"|{r.count}"
         for r in routes.itertuples()
     )
@@ -337,7 +347,9 @@ def _build_folium_html(routes: pd.DataFrame, cache: dict[str, list[list[float]]]
     m = folium.Map(
         location=[routes["start_lat"].mean(), routes["start_lng"].mean()],
         zoom_start=13,
-        tiles="CartoDB dark_matter",
+        tiles=BASEMAP_TILES,
+        attr=BASEMAP_ATTR,
+        max_zoom=BASEMAP_MAX_ZOOM,
     )
     for r in routes.itertuples():
         if r.start_lat == r.end_lat and r.start_lng == r.end_lng:

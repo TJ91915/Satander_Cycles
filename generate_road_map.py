@@ -31,7 +31,12 @@ def generate_road_route_map():
     # Initialize an interactive dark-themed Folium Map centered on London
     center_lat = df_clean['Start station lat'].mean()
     center_lon = df_clean['Start station long'].mean()
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=13, tiles='CartoDB dark_matter')
+    # Esri dark canvas: keyless (CARTO tiles now require an API key)
+    m = folium.Map(
+        location=[center_lat, center_lon], zoom_start=13, max_zoom=16,
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        attr='Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    )
     
     print(f"Fetching physical road routes for {len(route_counts)} unique station pairs...")
     print("This might take a couple of minutes as we communicate with the routing API...")
