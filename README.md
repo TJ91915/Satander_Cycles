@@ -33,6 +33,8 @@ Sheet reads are cached for 2 hours (`CACHE_TTL` in `lib.py`). To force a refresh
 
 The Route Map tab embeds a Folium map with OSRM-routed cycle paths (real road geometry, not straight lines). On each page load, the dashboard fingerprints the unique start→end coordinate pairs in the Rental Log; if it differs from the last regenerated map, OSRM is called for any **new** routes only and the HTML is rebuilt. Geometries are cached locally in `assets/route_geometry_cache.json`.
 
+The basemap is CARTO Dark Matter, which needs a (free, non-commercial) API key: set `carto_api_key` in Streamlit secrets (top level, above `[gcp_service_account]`). Without it the map falls back to Esri's keyless dark canvas. The key is embedded in the map HTML, so it is visible in page source; restrict it to the app's domain in the CARTO dashboard. The basemap URL is part of the fingerprint, so adding, removing or rotating the key rebuilds the map on the next load.
+
 The map files are gitignored on purpose — the repo carries no trip data. First page load on a fresh deploy takes ~20–30 seconds while OSRM is queried; subsequent loads are instant.
 
 ## Excluding bikes
